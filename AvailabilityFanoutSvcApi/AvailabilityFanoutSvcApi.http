@@ -1,0 +1,6 @@
+@AvailabilityFanoutSvcApi_HostAddress = http://localhost:5299
+
+GET {{AvailabilityFanoutSvcApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
