@@ -1,37 +1,27 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using System.Net.Http;
-
-namespace AvailabilityFanoutSvcApi.Controllers
+﻿namespace AvailabilityFanoutSvcApi.Controllers
 {
+    using Microsoft.AspNetCore.Mvc;
+
     [Route("v1/[controller]")]
     [ApiController]
-    public class PingController : ControllerBase
+    public class PingController(
+        ILogger<PingController> logger,
+        HttpClient httpClient,
+        IConfiguration configuration) : ControllerBase
     {
-        private readonly ILogger<PingController> logger;
-        private readonly HttpClient httpClient;
-        private readonly IEnumerable<string> urls =
-        [
-            "https://gamers-hub.azurewebsites.net/index.html",
-            "https://gamers-hub-api.azurewebsites.net/v1/ping"
-        ];
-
-
-        public PingController(
-            ILogger<PingController> logger,
-            HttpClient httpClient)
-        {
-            this.logger = logger;
-            this.httpClient = httpClient;
-        }
+        private readonly IEnumerable<string> urls = configuration.GetSection("PingUrls").Get<IEnumerable<string>>() ?? [];
 
         [HttpGet(Name = "Ping")]
         public async Task<IActionResult> Ping()
         {
-            this.logger.LogInformation("Ping endpoint called");
+            logger.LogInformation("Ping endpoint called");
 
-            var tasks = this.urls.Select(url => this.httpClient.GetAsync(url));
-            await Task.WhenAll(tasks);
+            var responses = await Task.WhenAll(this.urls.Select(url => httpClient.GetAsync(url)));
+            if (responses.Any(r => !r.IsSuccessStatusCode))
+            {
+                logger.LogWarning("One or more downstream services did not return success.");
+                return StatusCode(500); // Bad Gateway or another appropriate status
+            }
             return Ok();
         }
     }
