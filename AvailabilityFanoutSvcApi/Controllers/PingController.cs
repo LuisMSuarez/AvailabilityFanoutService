@@ -12,7 +12,7 @@ namespace AvailabilityFanoutSvcApi.Controllers
         private readonly HttpClient httpClient;
         private readonly IEnumerable<string> urls =
         [
-            "https://gamers-hub.azurewebsites.net/",
+            "https://gamers-hub.azurewebsites.net/index.html",
             "https://gamers-hub-api.azurewebsites.net/v1/ping"
         ];
 
