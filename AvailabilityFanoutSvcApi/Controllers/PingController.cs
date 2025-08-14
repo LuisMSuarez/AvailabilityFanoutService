@@ -1,5 +1,6 @@
 ﻿namespace AvailabilityFanoutSvcApi.Controllers
 {
+    using AvailabilityFanoutSvcApi.Contracts;
     using Microsoft.AspNetCore.Mvc;
 
     [Route("v1/[controller]")]
@@ -16,13 +17,41 @@
         {
             logger.LogInformation("Ping endpoint called");
 
-            var responses = await Task.WhenAll(this.urls.Select(url => httpClient.GetAsync(url)));
-            if (responses.Any(r => !r.IsSuccessStatusCode))
+            var tasks = urls.Select(async url =>
+            {
+                try
+                {
+                    var response = await httpClient.GetAsync(url);
+                    var payload = await response.Content.ReadAsStringAsync();
+                    return new PingResult(
+                        Endpoint: url,
+                        StatusCode: (int)response.StatusCode,
+                        Payload: payload
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Error pinging {Url}", url);
+                    return new PingResult(
+                        Endpoint: url,
+                        StatusCode: 500,
+                        Payload: $"Exception: {ex.Message}"
+                    );
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            if (results.Any(ping => !IsSuccessStatusCode(ping.StatusCode)))
             {
                 logger.LogWarning("One or more downstream services did not return success.");
-                return StatusCode(500); // Bad Gateway or another appropriate status
+                return StatusCode(500, results);
             }
-            return Ok();
+
+            return Ok(results);
+        }
+        private static bool IsSuccessStatusCode(int statusCode)
+        {
+            return statusCode >= 200 && statusCode <= 299;
         }
     }
 }
